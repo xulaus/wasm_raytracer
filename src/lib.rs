@@ -1,6 +1,5 @@
 mod utils;
-use std::ops;
-
+use std::{collections::VecDeque, ops};
 macro_rules! min {
     ($x: expr) => ($x);
     ($x: expr, $($z: expr),+) => {{
@@ -22,7 +21,7 @@ extern "C" {
     fn log(s: &str);
 }
 
-const EPSILON:f32 = 0.001;
+const EPSILON: f32 = 0.001;
 
 #[derive(Clone)]
 pub struct XoShiRo256 {
@@ -180,7 +179,7 @@ impl Plane {
         if cos != 0.0 {
             let ret = Vec3::dot(&(self.p - ray.start), &self.n) / cos;
             if ret > EPSILON {
-                return Some(ret)
+                return Some(ret);
             }
         }
 
@@ -215,7 +214,7 @@ pub struct RenderState {
     random: XoShiRo256,
     camera: Vec3,
     camera_target: Vec3,
-    active_rays: Vec<RayCastJob>,
+    active_rays: VecDeque<RayCastJob>,
 }
 
 #[wasm_bindgen]
@@ -272,7 +271,7 @@ impl RenderState {
                     start: self.camera,
                     dir: cur_veiw.norm(),
                 };
-                self.active_rays.push(RayCastJob {
+                self.active_rays.push_back(RayCastJob {
                     ray,
                     pixel,
                     alpha: 0xFF,
@@ -294,7 +293,11 @@ impl RenderState {
 
         let light1 = Plane {
             p: self.camera,
-            n: Vec3{ x:0.0, y:0.0, z:0.0} -self.camera,
+            n: Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            } - self.camera,
         };
         let light2 = Sphere {
             c: Vec3 {
@@ -313,8 +316,6 @@ impl RenderState {
             },
             r: 1.0,
         };
-
-        let mut new_rays: Vec<RayCastJob> = vec![];
 
         fn reflect_in_sphere(s: &Sphere, ray: &Line, interestion_at: f32) -> Line {
             let y = ray.point_at(interestion_at);
@@ -338,51 +339,48 @@ impl RenderState {
             }
         }
 
-        for job in self.active_rays.drain(0..) {
-            let ray = &job.ray;
-            let pixel = job.pixel;
-            let sphere_col = orb.intersect_with(&ray);
-            let light_col = light2.intersect_with(&ray);
-            let (col, alpha) = if intersect_before(sphere_col, light_col) {
-                let ray_alpha = job.alpha / 2;
-                if ray_alpha != 0 {
-                    new_rays.push(RayCastJob {
-                        ray: reflect_in_sphere(&orb, &ray, sphere_col.unwrap()),
-                        pixel,
-                        alpha: ray_alpha,
-                    });
+        for _ in 0..5000000 {
+            if let Some(job) = self.active_rays.pop_front() {
+                let ray = &job.ray;
+                let pixel = job.pixel;
+                let sphere_col = orb.intersect_with(&ray);
+                let light_gcol = light2.intersect_with(&ray);
+                let (col, alpha) = if intersect_before(sphere_col, light_col) {
+                    let ray_alpha = job.alpha / 2;
+                    if ray_alpha != 0 {
+                        self.active_rays.push_back(RayCastJob {
+                            ray: reflect_in_sphere(&orb, &ray, sphere_col.unwrap()),
+                            pixel,
+                            alpha: ray_alpha,
+                        });
+                    }
+                    let absorbsion_alpha = job.alpha - ray_alpha;
+
+                    (0xAA, absorbsion_alpha)
+                // } else if let Some(_) = light1.intersect_with(&ray) {
+                //     (0xFF, job.alpha)
+                } else if intersect_before(light_col, sphere_col) {
+                    (0xFF, job.alpha)
+                } else {
+                    (0x00, job.alpha)
+                };
+
+                fn col_lerp(val: u8, alpha: u8, col: u8) -> u8 {
+                    let promoted_val: u32 = val as u32;
+                    let promoted_alpha: u32 = alpha as u32;
+                    let promoted_col: u32 = col as u32;
+                    let new_col = (promoted_val * (255 - promoted_alpha)
+                        + (promoted_col * promoted_alpha))
+                        / 255;
+                    new_col as u8
                 }
-                let absorbsion_alpha = job.alpha - ray_alpha;
 
-                (0xAA, absorbsion_alpha)
-            // } else if let Some(_) = light1.intersect_with(&ray) {
-            //     (0xFF, job.alpha)
-            } else if intersect_before(light_col, sphere_col) {
-                (0xFF, job.alpha)
-            } else {
-                (0x00, job.alpha)
-            };
-
-            fn col_lerp(val: u8, alpha: u8, col: u8) -> u8 {
-                let promoted_val: u32 = val as u32;
-                let promoted_alpha: u32 = alpha as u32;
-                let promoted_col: u32 = col as u32;
-                let new_col =
-                    (promoted_val * (255 - promoted_alpha) + (promoted_col * promoted_alpha)) / 255;
-                new_col as u8
+                self.img_data[pixel + 0] = col_lerp(self.img_data[pixel + 0], alpha, col);
+                self.img_data[pixel + 1] = col_lerp(self.img_data[pixel + 1], alpha, col);
+                self.img_data[pixel + 2] = col_lerp(self.img_data[pixel + 2], alpha, col);
+                self.img_data[pixel + 3] += 0xFF;
             }
-
-            self.img_data[pixel + 0] = col_lerp(self.img_data[pixel + 0], alpha, col);
-            self.img_data[pixel + 1] = col_lerp(self.img_data[pixel + 1], alpha, col);
-            self.img_data[pixel + 2] = col_lerp(self.img_data[pixel + 2], alpha, col);
-
-            // self.img_data[pixel + 0] = col;
-            // self.img_data[pixel + 1] = col;
-            // self.img_data[pixel + 2] = col;
-
-            self.img_data[pixel + 3] += 0xFF;
         }
-        self.active_rays = new_rays;
     }
 }
 
@@ -411,7 +409,7 @@ pub fn setup(width: u32, height: u32) -> RenderState {
         random: XoShiRo256 {
             state: [31415, 27182, 141142, 17320],
         },
-        active_rays: vec![],
+        active_rays: VecDeque::new(),
     };
     ret.create_init_rays();
     log("Setup complete");
