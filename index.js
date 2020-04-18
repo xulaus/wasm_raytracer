@@ -26,9 +26,9 @@ window.addEventListener('DOMContentLoaded', _ => {
     document.body.appendChild(job_count);
 
     let cont = document.createElement("div")
-    let x = makeInp(cont, 'x', 0)
+    let x = makeInp(cont, 'x', 1)
     let y = makeInp(cont, 'y', 0)
-    let z = makeInp(cont, 'z', 3)
+    let z = makeInp(cont, 'z', 0)
 
     let button = document.createElement("button")
     button.appendChild(document.createTextNode("Update"));
@@ -50,12 +50,17 @@ window.addEventListener('DOMContentLoaded', _ => {
         });
 
         const render = (timestamp) => {
+            const start = new Date();
             state.tick();
-            job_count.innerHTML = "Number of rays: " + state.active_rays();
             const pointer = state.img();
             const data = new Uint8ClampedArray(program.memory.buffer, pointer, width * height * 4)
             const img = new ImageData(data, width, height);
             ctx.putImageData(img, 0, 0);
+            const end = new Date();
+            job_count.innerHTML = `
+            FPS: ${Math.round(1000 / (end - start))} <br />
+            Number of rays: ${state.active_rays()} `;
+
             window.requestAnimationFrame(render);
         };
         render()

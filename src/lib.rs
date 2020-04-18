@@ -251,7 +251,7 @@ impl RenderState {
         let v = Vec3::cross(&t, &b);
         // fov = (pi / 2)
         //
-        let d = 0.01; // distance from focal point
+        let d = EPSILON; // distance from focal point
 
         //shift vectors
         let width: f32 = self.width as f32;
@@ -339,12 +339,12 @@ impl RenderState {
             }
         }
 
-        for _ in 0..5000000 {
+        for _ in 0..2500000 {
             if let Some(job) = self.active_rays.pop_front() {
                 let ray = &job.ray;
                 let pixel = job.pixel;
                 let sphere_col = orb.intersect_with(&ray);
-                let light_gcol = light2.intersect_with(&ray);
+                let light_col = light2.intersect_with(&ray);
                 let (col, alpha) = if intersect_before(sphere_col, light_col) {
                     let ray_alpha = job.alpha / 2;
                     if ray_alpha != 0 {
@@ -391,15 +391,10 @@ pub fn setup(width: u32, height: u32) -> RenderState {
         width,
         height,
         img_data: vec![0x00; (4 * width * height) as usize],
-        // camera: Vec3 {
-        //     x: -10.0,
-        //     y: -10.0,
-        //     z: -30.0,
-        // },
         camera: Vec3 {
-            x: 1.5,
-            y: 1.5,
-            z: 0.0,
+            x: -10.0,
+            y: -10.0,
+            z: -30.0,
         },
         camera_target: Vec3 {
             x: 1.5,
