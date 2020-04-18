@@ -22,6 +22,9 @@ window.addEventListener('DOMContentLoaded', _ => {
     const {width, height} = screen
     document.body.appendChild(screen);
 
+    let job_count = document.createElement("div")
+    document.body.appendChild(job_count);
+
     let cont = document.createElement("div")
     let x = makeInp(cont, 'x', 0)
     let y = makeInp(cont, 'y', 0)
@@ -45,15 +48,13 @@ window.addEventListener('DOMContentLoaded', _ => {
                 state.set_camera_to(x_val, y_val, z_val)
             }
         });
-        const pointer = state.img();
-
-        const data = new Uint8ClampedArray(program.memory.buffer, pointer, width * height * 4)
-        const img = new ImageData(data, width, height);
-
-        ctx.putImageData(img, 0, 0);
 
         const render = (timestamp) => {
             state.tick();
+            job_count.innerHTML = "Number of rays: " + state.active_rays();
+            const pointer = state.img();
+            const data = new Uint8ClampedArray(program.memory.buffer, pointer, width * height * 4)
+            const img = new ImageData(data, width, height);
             ctx.putImageData(img, 0, 0);
             window.requestAnimationFrame(render);
         };
