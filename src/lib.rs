@@ -244,7 +244,7 @@ impl RenderState {
         };
         let up = Vec3 {
             x: 0.0,
-            y: 1.0,
+            y: -1.0,
             z: 0.0,
         };
 
@@ -293,19 +293,23 @@ impl RenderState {
             self.create_init_rays();
         }
 
-        let light1 = Plane {
-            p: self.camera,
-            n: Vec3 {
+        let floor = Plane {
+            p: Vec3 {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
-            } - self.camera,
+            },
+            n: Vec3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
         };
-        let light2 = Sphere {
+        let light = Sphere {
             c: Vec3 {
                 x: 2.0,
                 y: 2.0,
-                z: 0.1,
+                z: 0.0,
             },
             r: 0.25,
         };
@@ -313,7 +317,7 @@ impl RenderState {
         let orb = Sphere {
             c: Vec3 {
                 x: 0.0,
-                y: 0.0,
+                y: 1.0,
                 z: 0.0,
             },
             r: 1.0,
@@ -346,7 +350,8 @@ impl RenderState {
                 let ray = &job.ray;
                 let pixel = job.pixel;
                 let sphere_col = orb.intersect_with(&ray);
-                let light_col = light2.intersect_with(&ray);
+                let light_col = light.intersect_with(&ray);
+                let floor_col = floor.intersect_with(&ray);
                 let (col, alpha) = if intersect_before(sphere_col, light_col) {
                     let ray_alpha = job.alpha / 2;
                     if ray_alpha != 0 {
@@ -363,6 +368,32 @@ impl RenderState {
                 //     (0xFF, job.alpha)
                 } else if intersect_before(light_col, sphere_col) {
                     (0xFF, job.alpha)
+                } else if let Some(d) = floor_col {
+                    let point = ray.point_at(d);
+                    let mut r = point.x.abs() as i32 + point.z.abs() as i32;
+                    if point.x <= 0.0 {
+                        r+=1;
+                    }
+                    if point.z <= 0.0 {
+                        r+=1;
+                    }
+                    let col = if r % 2 == 0 {
+                        0xCC
+                    } else {
+                        0x22
+                    };
+                    let ray_alpha = job.alpha / 8;
+                    if ray_alpha != 0 {
+                        let reflect = (ray.dir - 2.0 * Vec3::dot(&floor.n, &ray.dir) * floor.n).norm();
+                        self.active_rays.push_back(RayCastJob {
+                            ray: Line { start: point, dir: reflect },
+                            pixel,
+                            alpha: ray_alpha,
+                        });
+                    }
+                    let absorbsion_alpha = job.alpha - ray_alpha;
+
+                    (col, absorbsion_alpha)
                 } else {
                     (0x00, job.alpha)
                 };
@@ -395,13 +426,13 @@ pub fn setup(width: u32, height: u32) -> RenderState {
         img_data: vec![0x00; (4 * width * height) as usize],
         camera: Vec3 {
             x: -10.0,
-            y: -10.0,
+            y: 5.0,
             z: -30.0,
         },
         camera_target: Vec3 {
-            x: 1.5,
-            y: 1.5,
-            z: 0.0,
+            x: 3.0 ,
+            y: 3.0,
+            z: 3.0,
         },
         random: XoShiRo256 {
             state: [31415, 27182, 141142, 17320],
