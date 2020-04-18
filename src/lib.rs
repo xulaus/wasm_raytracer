@@ -78,16 +78,18 @@ impl RenderState {
         let height: f32 = self.height as f32;
         let gx = d;
         let gy = (gx * height) / width;
-        let shift_x = ((2.0 * gx) / width) * b;
-        let shift_y = ((2.0 * gy) / height) * v;
+        let shift_x = ((2.0 * gx) / (width - 1.0)) * b;
+        let shift_y = ((2.0 * gy) / (height - 1.0)) * v;
 
         let veiw_0 = d * t - gx * b - gy * v;
 
-        for _t in 0..8 {
+        for t in 0..8 {
             for y in 0..self.height {
                 for x in 0..self.width {
-                    let dx = ((self.random.next() & 0xFFFF) as f32) / (0xFFFF as f32);
-                    let dy = ((self.random.next() & 0xFFFF) as f32) / (0xFFFF as f32);
+                    let idx = (self.random.next() & 0xFFFF);
+                    let idy = (self.random.next() & 0xFFFF);
+                    let dx = (idx as f32) / (0xFFFF as f32) - 0.5;
+                    let dy = (idy as f32) / (0xFFFF as f32) - 0.5;
                     let cur_veiw = veiw_0 + shift_x * (x as f32+ dx) + shift_y * (y as f32 + dy);
                     let pixel = ((x + y * self.width) * 4) as usize;
                     let ray = Line {
@@ -233,7 +235,7 @@ impl RenderState {
                 self.img_data[pixel + 0] = col_lerp(self.img_data[pixel + 0], alpha, col);
                 self.img_data[pixel + 1] = col_lerp(self.img_data[pixel + 1], alpha, col);
                 self.img_data[pixel + 2] = col_lerp(self.img_data[pixel + 2], alpha, col);
-                self.img_data[pixel + 3] += 0xFF;
+                self.img_data[pixel + 3] = 0xFF;
             }
         }
     }
