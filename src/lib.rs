@@ -233,7 +233,9 @@ impl RenderState {
 
     fn create_init_rays(&mut self) {
         self.active_rays.clear();
-        self.img_data = vec![0; (self.width * self.height * 4) as usize];
+        for elem in self.img_data.iter_mut() {
+            *elem = 0x00;
+        }
 
         let target = Vec3 {
             x: 0.0,

@@ -48,13 +48,13 @@ window.addEventListener('DOMContentLoaded', _ => {
                 state.set_camera_to(x_val, y_val, z_val)
             }
         });
+        const pointer = state.img();
+        const data = new Uint8ClampedArray(program.memory.buffer, pointer, width * height * 4)
+        const img = new ImageData(data, width, height);
 
         const render = (timestamp) => {
             const start = new Date();
             state.tick();
-            const pointer = state.img();
-            const data = new Uint8ClampedArray(program.memory.buffer, pointer, width * height * 4)
-            const img = new ImageData(data, width, height);
             ctx.putImageData(img, 0, 0);
             const end = new Date();
             job_count.innerHTML = `
