@@ -22,6 +22,8 @@ extern "C" {
     fn log(s: &str);
 }
 
+const EPSILON:f32 = 0.001;
+
 #[derive(Clone)]
 pub struct XoShiRo256 {
     state: [u64; 4],
@@ -151,11 +153,11 @@ impl Sphere {
         if chord >= 0.0 {
             let d1 = -v_d + chord.sqrt();
             let d2 = -v_d - chord.sqrt();
-            if d1 <= 0.0 && d2 <= 0.0 {
+            if d1 <= EPSILON && d2 <= EPSILON {
                 None
-            } else if d1 <= 0.0 {
+            } else if d1 <= EPSILON {
                 Some(d2)
-            } else if d2 <= 0.0 {
+            } else if d2 <= EPSILON {
                 Some(d1)
             } else {
                 Some(min!(d1, d2))
@@ -175,11 +177,14 @@ struct Plane {
 impl Plane {
     fn intersect_with(&self, ray: &Line) -> Option<f32> {
         let cos = Vec3::dot(&ray.dir, &self.n);
-        if cos < 0.0 {
-            Some(Vec3::dot(&(ray.start - self.p), &self.n) / cos)
-        } else {
-            None
+        if cos != 0.0 {
+            let ret = Vec3::dot(&(self.p - ray.start), &self.n) / cos;
+            if ret > EPSILON {
+                return Some(ret)
+            }
         }
+
+        None
     }
 }
 
@@ -287,18 +292,10 @@ impl RenderState {
             self.create_init_rays();
         }
 
-        // let light1 = Plane {
-        //     p: Vec3 {
-        //         x: 2.0,
-        //         y: 0.0,
-        //         z: 0.0,
-        //     },
-        //     n: Vec3 {
-        //         x: -1.0,
-        //         y: 0.0,
-        //         z: 0.0,
-        //     },
-        // };
+        let light1 = Plane {
+            p: self.camera,
+            n: Vec3{ x:0.0, y:0.0, z:0.0} -self.camera,
+        };
         let light2 = Sphere {
             c: Vec3 {
                 x: 2.0,
@@ -347,7 +344,7 @@ impl RenderState {
             let sphere_col = orb.intersect_with(&ray);
             let light_col = light2.intersect_with(&ray);
             let (col, alpha) = if intersect_before(sphere_col, light_col) {
-                let mut ray_alpha = job.alpha / 2;
+                let ray_alpha = job.alpha / 2;
                 if ray_alpha != 0 {
                     new_rays.push(RayCastJob {
                         ray: reflect_in_sphere(&orb, &ray, sphere_col.unwrap()),
@@ -378,7 +375,12 @@ impl RenderState {
             self.img_data[pixel + 0] = col_lerp(self.img_data[pixel + 0], alpha, col);
             self.img_data[pixel + 1] = col_lerp(self.img_data[pixel + 1], alpha, col);
             self.img_data[pixel + 2] = col_lerp(self.img_data[pixel + 2], alpha, col);
-            self.img_data[pixel + 3] = 0xFF;
+
+            // self.img_data[pixel + 0] = col;
+            // self.img_data[pixel + 1] = col;
+            // self.img_data[pixel + 2] = col;
+
+            self.img_data[pixel + 3] += 0xFF;
         }
         self.active_rays = new_rays;
     }
