@@ -78,24 +78,28 @@ impl RenderState {
         let height: f32 = self.height as f32;
         let gx = d;
         let gy = (gx * height) / width;
-        let shift_x = ((2.0 * gx) / (width - 1.0)) * b;
-        let shift_y = ((2.0 * gy) / (height - 1.0)) * v;
+        let shift_x = ((2.0 * gx) / width) * b;
+        let shift_y = ((2.0 * gy) / height) * v;
 
         let veiw_0 = d * t - gx * b - gy * v;
 
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let cur_veiw = veiw_0 + shift_x * x + shift_y * y;
-                let pixel = ((x + y * self.width) * 4) as usize;
-                let ray = Line {
-                    start: self.camera,
-                    dir: cur_veiw.norm(),
-                };
-                self.active_rays.push_back(RayCastJob {
-                    ray,
-                    pixel,
-                    alpha: 0xFF,
-                });
+        for _t in 0..8 {
+            for y in 0..self.height {
+                for x in 0..self.width {
+                    let dx = ((self.random.next() & 0xFFFF) as f32) / (0xFFFF as f32);
+                    let dy = ((self.random.next() & 0xFFFF) as f32) / (0xFFFF as f32);
+                    let cur_veiw = veiw_0 + shift_x * (x as f32+ dx) + shift_y * (y as f32 + dy);
+                    let pixel = ((x + y * self.width) * 4) as usize;
+                    let ray = Line {
+                        start: self.camera,
+                        dir: cur_veiw.norm(),
+                    };
+                    self.active_rays.push_back(RayCastJob {
+                        ray,
+                        pixel,
+                        alpha: 0x2F,
+                    });
+                }
             }
         }
     }
@@ -103,7 +107,7 @@ impl RenderState {
     pub fn tick(&mut self) {
         let diff = self.camera - self.camera_target;
         if diff.abs() != 0.0 {
-            self.camera = if diff.abs() < 0.01 {
+            self.camera = if diff.abs() < 0.1 {
                 self.camera_target
             } else {
                 self.camera - diff * 0.1
@@ -163,8 +167,8 @@ impl RenderState {
             }
         }
 
-        for _ in 0..2500000 {
-            if let Some(job) = self.active_rays.pop_front() {
+        for _ in 0..2000000 {
+            if let Some(job) = self.active_rays.pop_back() {
                 let ray = &job.ray;
                 let pixel = job.pixel;
                 let sphere_col = orb.intersect_with(&ray);
