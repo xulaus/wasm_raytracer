@@ -197,14 +197,10 @@ impl RenderState {
                     (0xFF, job.alpha)
                 } else if let Some(d) = floor_col {
                     let point = ray.point_at(d);
-                    let mut r = point.x.abs() as i32 + point.z.abs() as i32;
-                    if point.x <= 0.0 {
-                        r += 1;
-                    }
-                    if point.z <= 0.0 {
-                        r += 1;
-                    }
-                    let col = if r % 2 == 0 { 0xCC } else { 0x22 };
+                    let dx = (point.x.fract() + 1.0).fract();
+                    let dy = (point.z.fract() + 1.0).fract();
+                    let mut black = dx < 0.5 && dy < 0.5 || dy > 0.5 && dx > 0.5;
+                    let col = if black { 0xDD } else { 0x22 };
                     let ray_alpha = job.alpha / 8;
                     if ray_alpha != 0 {
                         let reflect =
@@ -240,7 +236,7 @@ impl RenderState {
                 self.img_data[pixel + 2] = col_lerp(self.img_data[pixel + 2], alpha, col);
                 self.img_data[pixel + 3] = 0xFF;
             }
-            else if self.rays_per_pixel < 16 {
+            else if self.rays_per_pixel < 32 {
                 self.rays_per_pixel += 1;
                 self.cast_from_camera(0xFF / self.rays_per_pixel)
             }
