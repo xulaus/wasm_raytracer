@@ -172,7 +172,8 @@ impl RenderState {
             }
         }
 
-        for _ in 0..2000000 {
+        const rays_per_frame:u32 = 2000000;
+        for cur_ray_i in 0..rays_per_frame {
             if let Some(job) = self.active_rays.pop_front() {
                 let ray = &job.ray;
                 let pixel = job.pixel;
@@ -236,10 +237,10 @@ impl RenderState {
                 self.img_data[pixel + 2] = col_lerp(self.img_data[pixel + 2], alpha, col);
                 self.img_data[pixel + 3] = 0xFF;
             }
-            else if self.rays_per_pixel < 32 {
-                self.rays_per_pixel += 1;
-                self.cast_from_camera(0xFF / self.rays_per_pixel)
-            }
+        }
+        if self.active_rays.len() == 0 && self.rays_per_pixel < 32 {
+            self.rays_per_pixel += 1;
+            self.cast_from_camera(0xFF / self.rays_per_pixel)
         }
     }
 }
