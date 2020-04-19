@@ -4,7 +4,7 @@ mod utils;
 
 extern crate wasm_bindgen;
 
-use geometry::{Vec3, Line, Sphere, Plane};
+use geometry::{Line, Plane, Sphere, Vec3};
 use random_seq::RandomSeq;
 use std::collections::VecDeque;
 use wasm_bindgen::prelude::*;
@@ -54,7 +54,7 @@ impl RenderState {
         self.active_rays.clear();
         for elem in self.img_data.iter_mut() {
             *elem = 0x00;
-        };
+        }
         self.rays_per_pixel = 0;
     }
 
@@ -93,7 +93,7 @@ impl RenderState {
                 let idy = self.random.next() & 0xFFFF;
                 let dx = (idx as f32) / (0xFFFF as f32) - 0.5;
                 let dy = (idy as f32) / (0xFFFF as f32) - 0.5;
-                let cur_veiw = veiw_0 + shift_x * (x as f32+ dx) + shift_y * (y as f32 + dy);
+                let cur_veiw = veiw_0 + shift_x * (x as f32 + dx) + shift_y * (y as f32 + dy);
                 let pixel = ((x + y * self.width) * 4) as usize;
                 let ray = Line {
                     start: self.camera,
@@ -172,8 +172,8 @@ impl RenderState {
             }
         }
 
-        const rays_per_frame:u32 = 2000000;
-        for cur_ray_i in 0..rays_per_frame {
+        let rays_per_frame: u32 = self.height * self.width * 2;
+        for _ in 0..rays_per_frame {
             if let Some(job) = self.active_rays.pop_front() {
                 let ray = &job.ray;
                 let pixel = job.pixel;
@@ -200,7 +200,7 @@ impl RenderState {
                     let point = ray.point_at(d);
                     let dx = (point.x.fract() + 1.0).fract();
                     let dy = (point.z.fract() + 1.0).fract();
-                    let mut black = dx < 0.5 && dy < 0.5 || dy > 0.5 && dx > 0.5;
+                    let black = dx < 0.5 && dy < 0.5 || dy > 0.5 && dx > 0.5;
                     let col = if black { 0xDD } else { 0x22 };
                     let ray_alpha = job.alpha / 8;
                     if ray_alpha != 0 {
@@ -264,7 +264,7 @@ pub fn setup(width: u32, height: u32) -> RenderState {
         },
         random: RandomSeq::new(),
         active_rays: VecDeque::new(),
-        rays_per_pixel: 1
+        rays_per_pixel: 1,
     };
     ret.clear_screen();
     ret.cast_from_camera(0xFF);
