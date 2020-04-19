@@ -33,6 +33,7 @@ pub struct RenderState {
     camera: Vec3,
     camera_target: Vec3,
     active_rays: VecDeque<RayCastJob>,
+    rays_per_pixel: u8,
 }
 
 #[wasm_bindgen]
@@ -49,12 +50,15 @@ impl RenderState {
         self.camera_target = Vec3 { x, y, z };
     }
 
-    fn create_init_rays(&mut self) {
+    fn clear_screen(&mut self) {
         self.active_rays.clear();
         for elem in self.img_data.iter_mut() {
             *elem = 0x00;
-        }
+        };
+        self.rays_per_pixel = 0;
+    }
 
+    fn cast_from_camera(&mut self, alpha: u8) {
         let target = Vec3 {
             x: 0.0,
             y: 0.0,
@@ -83,25 +87,23 @@ impl RenderState {
 
         let veiw_0 = d * t - gx * b - gy * v;
 
-        for t in 0..8 {
-            for y in 0..self.height {
-                for x in 0..self.width {
-                    let idx = (self.random.next() & 0xFFFF);
-                    let idy = (self.random.next() & 0xFFFF);
-                    let dx = (idx as f32) / (0xFFFF as f32) - 0.5;
-                    let dy = (idy as f32) / (0xFFFF as f32) - 0.5;
-                    let cur_veiw = veiw_0 + shift_x * (x as f32+ dx) + shift_y * (y as f32 + dy);
-                    let pixel = ((x + y * self.width) * 4) as usize;
-                    let ray = Line {
-                        start: self.camera,
-                        dir: cur_veiw.norm(),
-                    };
-                    self.active_rays.push_back(RayCastJob {
-                        ray,
-                        pixel,
-                        alpha: 0x2F,
-                    });
-                }
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let idx = self.random.next() & 0xFFFF;
+                let idy = self.random.next() & 0xFFFF;
+                let dx = (idx as f32) / (0xFFFF as f32) - 0.5;
+                let dy = (idy as f32) / (0xFFFF as f32) - 0.5;
+                let cur_veiw = veiw_0 + shift_x * (x as f32+ dx) + shift_y * (y as f32 + dy);
+                let pixel = ((x + y * self.width) * 4) as usize;
+                let ray = Line {
+                    start: self.camera,
+                    dir: cur_veiw.norm(),
+                };
+                self.active_rays.push_back(RayCastJob {
+                    ray,
+                    pixel,
+                    alpha: alpha,
+                });
             }
         }
     }
@@ -114,7 +116,8 @@ impl RenderState {
             } else {
                 self.camera - diff * 0.1
             };
-            self.create_init_rays();
+            self.clear_screen();
+            self.cast_from_camera(0xFF);
         }
 
         let floor = Plane {
@@ -170,7 +173,7 @@ impl RenderState {
         }
 
         for _ in 0..2000000 {
-            if let Some(job) = self.active_rays.pop_back() {
+            if let Some(job) = self.active_rays.pop_front() {
                 let ray = &job.ray;
                 let pixel = job.pixel;
                 let sphere_col = orb.intersect_with(&ray);
@@ -237,6 +240,10 @@ impl RenderState {
                 self.img_data[pixel + 2] = col_lerp(self.img_data[pixel + 2], alpha, col);
                 self.img_data[pixel + 3] = 0xFF;
             }
+            else if self.rays_per_pixel < 16 {
+                self.rays_per_pixel += 1;
+                self.cast_from_camera(0xFF / self.rays_per_pixel)
+            }
         }
     }
 }
@@ -260,8 +267,10 @@ pub fn setup(width: u32, height: u32) -> RenderState {
         },
         random: RandomSeq::new(),
         active_rays: VecDeque::new(),
+        rays_per_pixel: 1
     };
-    ret.create_init_rays();
+    ret.clear_screen();
+    ret.cast_from_camera(0xFF);
     log("Setup complete");
     ret
 }
